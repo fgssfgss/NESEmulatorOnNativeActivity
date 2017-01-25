@@ -181,17 +181,17 @@ uint8_t PPU::ReadRam(uint16_t addr) {
     if (addr >= 0x0000 && addr <= 0x1FFF) {
         return rom->ReadCHR(addr);
     } else if (addr >= 0x2000 && addr <= 0x23FF) {
-        return nt1[addr - 0x2000];
+        return nt1[addr % 0x2000];
     } else if (addr >= 0x2400 && addr <= 0x27FF) {
-        return nt2[addr - 0x2400];
+        return nt2[addr % 0x2400];
     } else if (addr >= 0x2800 && addr <= 0x2BFF) {
-        return nt3[addr - 0x2800];
+        return nt3[addr % 0x2800];
     } else if (addr >= 0x2C00 && addr <= 0x2FFF) {
-        return nt4[addr - 0x2C00];
+        return nt4[addr % 0x2C00];
     } else if (addr >= 0x3000 && addr <= 0x3EFF) {
-        return nt1[addr - 0x3000];
+        return nt1[addr % 0x3000];
     } else if (addr >= 0x3F00 && addr <= 0x3FFF) {
-        return readPalette((addr - 0x3F00) % 0x20);
+        return readPalette((addr % 0x3F00) % 0x20);
     }
     return 0;
 }
@@ -201,17 +201,17 @@ void PPU::WriteRam(uint16_t addr, uint8_t value) {
     if (addr >= 0x0000 && addr <= 0x1FFF) {
         // lol
     } else if (addr >= 0x2000 && addr <= 0x23FF) {
-        nt1[addr - 0x2000] = value;
+        nt1[addr % 0x2000] = value;
     } else if (addr >= 0x2400 && addr <= 0x27FF) {
-        nt2[addr - 0x2400] = value;
+        nt2[addr % 0x2400] = value;
     } else if (addr >= 0x2800 && addr <= 0x2BFF) {
-        nt3[addr - 0x2800] = value;
+        nt3[addr % 0x2800] = value;
     } else if (addr >= 0x2C00 && addr <= 0x2FFF) {
-        nt4[addr - 0x2C00] = value;
+        nt4[addr % 0x2C00] = value;
     } else if (addr >= 0x3000 && addr <= 0x3EFF) {
-        nt1[addr - 0x3000] = value;
+        nt1[addr % 0x3000] = value;
     } else if (addr >= 0x3F00 && addr <= 0x3FFF) {
-        writePalette((addr - 0x3F00) % 0x20, value);
+        writePalette((addr % 0x3F00) % 0x20, value);
     }
 }
 
@@ -371,7 +371,8 @@ void PPU::renderPixel() {
         }
     }
 
-    drawer(x, y, palette[readPalette(color) % 64]);
+    Console &c = Console::Instance();
+    c.callPutPixel(x, y, palette[readPalette(color) % 64]);
 }
 
 uint8_t PPU::readPalette(uint16_t addr) {
@@ -466,7 +467,8 @@ void PPU::evaluateSprites() {
 }
 
 void PPU::setVSync() {
-    vsyncHandler();
+    Console &c = Console::Instance();
+    c.callVSync();
     PPUSTATUS |= flagNmiOccured;
     nmiChange();
 }
@@ -602,11 +604,6 @@ int PPU::execute() {
     }
 
     return frame;
-}
-
-void PPU::setPixelWriterHandler(std::function<void(int, int, int)> func, std::function<void(void)> vsync) {
-    drawer = func;
-    vsyncHandler = vsync;
 }
 
 void PPU::getCycleScanlineRendering(int &_cycle, int &_scanline, bool &isRendering) {

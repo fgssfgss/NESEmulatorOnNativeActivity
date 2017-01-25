@@ -4,7 +4,10 @@
 
 #include "../include/Console.h"
 
-void Console::init(std::string filename, std::function<void(int, int, int)> func, std::function<void(void)> vsync) {
+void Console::init(std::string filename, void (*_drawPixel)(int x, int y, int color, void *userData), void (*_vsync)(void *userData), void *userData) {
+    drawPixel = _drawPixel;
+    vsync = _vsync;
+    userD = userData;
     rom = new ROM();
     ppu = new PPU();
     cpu = new CPU();
@@ -14,11 +17,17 @@ void Console::init(std::string filename, std::function<void(int, int, int)> func
     mem->init();
     cpu->init();
     ppu->init();
-    ppu->setPixelWriterHandler(func, vsync);
+}
+
+void Console::callVSync() {
+    vsync(userD);
+}
+
+void Console::callPutPixel(int x, int y, int color) {
+    drawPixel(x, y, color, userD);
 }
 
 void Console::step() {
-    //LOGW("next");
     int cycles = cpu->execute();
     if (mem->addCyclesAfterDMA == 513) { // kostyl, for better synchronization
         cycles += mem->addCyclesAfterDMA;

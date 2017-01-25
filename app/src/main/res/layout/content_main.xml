@@ -22,4 +22,14 @@
         android:layout_centerHorizontal="true"
         android:layout_marginBottom="201dp" />
 
+    <Button
+        android:text="Select File"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_above="@+id/button"
+        android:layout_alignLeft="@+id/button"
+        android:layout_alignStart="@+id/button"
+        android:layout_marginBottom="11dp"
+        android:id="@+id/file_button" />
+
 </RelativeLayout>

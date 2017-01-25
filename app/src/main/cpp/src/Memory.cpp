@@ -23,13 +23,13 @@ uint8_t Memory::Read8(uint16_t addr) {
     if (addr >= 0 && addr <= 0x07FF) {
         return ram[addr];
     } else if (addr >= 0x0800 && addr <= 0x0FFF) {
-        return ram[addr - 0x0800];
+        return ram[addr % 0x0800];
     } else if (addr >= 0x1000 && addr <= 0x17FF) {
-        return ram[addr - 0x1000];
+        return ram[addr % 0x1000];
     } else if (addr >= 0x1800 && addr <= 0x1FFF) {
-        return ram[addr - 0x1800];
+        return ram[addr % 0x1800];
     } else if (addr >= 0x2000 && addr <= 0x3FFF) {
-        return ppu->Read((addr - 0x2000) % 8);
+        return ppu->Read((addr % 0x2000) % 8);
     } else if (addr >= 0x4000 && addr <= 0x4017) {
         if (addr == 0x4016) {
             return controller->Read();
@@ -38,9 +38,9 @@ uint8_t Memory::Read8(uint16_t addr) {
         // I/O registers from test mode cpu, and ROM banks
     } else if (addr >= 0x4020 && addr <= 0xFFFF) {
         if (addr >= 0x6000 && addr <= 0x7FFF) {
-            return rom->ReadSRAM(addr - 0x6000);
+            return rom->ReadSRAM(addr % 0x6000);
         } else if (addr >= 0x8000) {
-            return rom->Read(addr - 0x8000);
+            return rom->Read(addr % 0x8000);
         }
     }
 
@@ -55,11 +55,11 @@ void Memory::Write8(uint16_t addr, uint8_t value) {
     if (addr >= 0 && addr <= 0x07FF) {
         ram[addr] = value;
     } else if (addr >= 0x0800 && addr <= 0x0FFF) {
-        ram[addr - 0x0800] = value;
+        ram[addr % 0x0800] = value;
     } else if (addr >= 0x1000 && addr <= 0x17FF) {
-        ram[addr - 0x1000] = value;
+        ram[addr % 0x1000] = value;
     } else if (addr >= 0x1800 && addr <= 0x1FFF) {
-        ram[addr - 0x1800] = value;
+        ram[addr % 0x1800] = value;
     } else if (addr >= 0x2000 && addr <= 0x3FFF) {
         ppu->Write(addr % 8, value);
     } else if (addr >= 0x4000 && addr <= 0x4017) {
@@ -76,7 +76,7 @@ void Memory::Write8(uint16_t addr, uint8_t value) {
         // I/O registers from test mode cpu
     } else if (addr >= 0x4020 && addr <= 0xFFFF) {
         if (addr >= 0x6000 && addr <= 0x7FFF) {
-            rom->WriteSRAM(addr - 0x6000, value);
+            rom->WriteSRAM(addr % 0x6000, value);
         } else {
             rom->Write(addr, value);
         }

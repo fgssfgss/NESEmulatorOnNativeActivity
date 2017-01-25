@@ -29,7 +29,11 @@ public:
 
     void step();
 
-    void init(std::string filename, std::function<void(int, int, int)> func, std::function<void(void)> vsync);
+    void callVSync();
+
+    void callPutPixel(int x, int y, int color);
+
+    void init(std::string filename, void (*_drawPixel)(int x, int y, int color, void *userData), void (*_vsync)(void *userData), void *userData);
 
     CPU *getCPU();
 
@@ -49,6 +53,10 @@ private:
     Console(Console const &) = delete;
 
     Console &operator=(Console const &) = delete;
+
+    void *userD;
+    void (*drawPixel)(int x, int y, int color, void *userData);
+    void (*vsync)(void *userData);
 
     CPU *cpu;
     Memory *mem;

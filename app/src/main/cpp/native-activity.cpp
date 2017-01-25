@@ -25,6 +25,7 @@ void init_emulator(engine *pEngine);
 struct engine {
     struct android_app *app;
     Emulator *emu;
+    const char *filename;
 
     EGLDisplay display;
     EGLSurface surface;
@@ -42,6 +43,7 @@ struct engine {
     GLint texSlot;
     GLint uvSlot;
     GLuint textureID;
+    GLuint screenTextureID;
 };
 
 struct Vertex {
@@ -68,9 +70,11 @@ const GLuint width = 256;
 const GLuint height = 240;
 const int stride = 4;
 
+// main screen texture, width == device screen width, etc
+GLubyte *screenTexture;
 //сама текстура Меняешь и потом вызываешь update_texture(двигатель)
 //формат RGBA. С RGB пидорасило, так что сорянчик -_-
-GLubyte spriteData[width * height * stride] = {255};
+GLubyte spriteData[width * height * stride] = {0};
 
 const char *shader_vtx =
                 "precision mediump float;\n"
@@ -98,7 +102,6 @@ static void printGLString(const char *name, GLenum s) {
     const char *v = (const char *) glGetString(s);
     LOGI("GL %s = %s\n", name, v);
 }
-
 
 int init_display(struct engine *engine) {
     const EGLint attribs[] = {
@@ -153,6 +156,7 @@ int init_display(struct engine *engine) {
     glDisable(GL_DEPTH_TEST);
     glViewport(0, 0, w, h);
 
+    screenTexture = new uint8_t[w*h*stride];
 
     printGLString("Version", GL_VERSION);
     printGLString("Vendor", GL_VENDOR);
@@ -216,13 +220,24 @@ static void init_shader(struct engine *engine) {
     return;
 }
 
-void update_texture(struct engine *engine) {
-    glBindTexture(GL_TEXTURE_2D, engine->textureID);
+void init_screen_texture(struct engine *engine) {
+    glBindTexture(GL_TEXTURE_2D, engine->screenTextureID);
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, engine->width, engine->height, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                 screenTexture);
+    glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+void update_texture(struct engine *engine) {
+    glBindTexture(GL_TEXTURE_2D, engine->screenTextureID);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
+    // glTexSubImage2D need here
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 100, 80, width, height, GL_RGBA, GL_UNSIGNED_BYTE,
                  spriteData);
     glBindTexture(GL_TEXTURE_2D, 0);
 }
@@ -236,19 +251,17 @@ void create_buffers_and_texture(struct engine *engine) {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, engine->indexBuffer);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, 6 * sizeof(GLushort), Indices, GL_STATIC_DRAW);
 
-    glGenTextures(1, &engine->textureID);
+    glGenTextures(1, &engine->screenTextureID);
+
+    init_screen_texture(engine);
 
     update_texture(engine);
 }
-
-static int val = 0;
 
 void draw_frame(struct engine *engine) {
     if (engine->display == NULL) {
         return;
     }
-
-    //LOGW("draging another frame, meeeh");
 
     glViewport(0, 0, engine->width, engine->height);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -271,7 +284,7 @@ void draw_frame(struct engine *engine) {
     }
 
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, engine->textureID);
+    glBindTexture(GL_TEXTURE_2D, engine->screenTextureID);
     glUniform1i(engine->uvSlot, 0);
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
     glBindTexture(GL_TEXTURE_2D, 0);
@@ -318,7 +331,6 @@ void handle_cmd(struct android_app *app, int32_t cmd) {
                 init_display(engine);
                 create_buffers_and_texture(engine);
                 init_shader(engine);
-                draw_frame(engine);
             }
             break;
         case APP_CMD_TERM_WINDOW:
@@ -330,30 +342,49 @@ void handle_cmd(struct android_app *app, int32_t cmd) {
     }
 }
 
+std::chrono::high_resolution_clock::time_point t_start;
+
 void vsync_call(void *userData) {
     struct engine *engine = (struct engine *)userData;
     update_texture(engine);
     draw_frame(engine);
+    std::chrono::high_resolution_clock::time_point t_end = std::chrono::high_resolution_clock::now();
+    double time = std::chrono::duration<double, std::milli>(t_end-t_start).count();
+    LOGW("time of frame: %lf ms", time);
+    t_start = std::chrono::high_resolution_clock::now();
 }
 
 void put_pixel(int x, int y, int color, void *userData) {
-    union {
-        uint32_t num;
-        uint8_t bytes[4];
-    };
-
-    //LOGW("%d %d %d", x, y, color);
-
-    num = color;
-    spriteData[x*stride + y + 0] = bytes[0];
-    spriteData[x*stride + y + 1] = bytes[1];
-    spriteData[x*stride + y + 2] = bytes[2];
-    spriteData[x*stride + y + 3] = bytes[3];
+    int offset = (y*width + x)*stride;
+    spriteData[offset + 0] = (color >> 16) & 0xff;
+    spriteData[offset + 1] = (color >> 8) & 0xff;
+    spriteData[offset + 2] = (color >> 0) & 0xff;
+    spriteData[offset + 3] = (color >> 24) & 0xff;
 }
 
 void init_emulator(struct engine *engine) {
-    engine->emu = new Emulator("/sdcard/file.nes", put_pixel, vsync_call, (void *)engine);
+    engine->emu = new Emulator(engine->filename, put_pixel, vsync_call, (void *)engine);
     engine->emu->preRun();
+}
+
+void get_intent_data(struct engine *engine) {
+    JNIEnv *env;
+    engine->app->activity->vm->AttachCurrentThread(&env, 0);
+
+    jobject me = engine->app->activity->clazz;
+
+    jclass acl = env->GetObjectClass(me);
+    jmethodID giid = env->GetMethodID(acl, "getIntent", "()Landroid/content/Intent;");
+    jobject intent = env->CallObjectMethod(me, giid);
+
+    jclass icl = env->GetObjectClass(intent);
+    jmethodID gseid = env->GetMethodID(icl, "getStringExtra", "(Ljava/lang/String;)Ljava/lang/String;");
+
+    jstring jsParam = (jstring)env->CallObjectMethod(intent, gseid, env->NewStringUTF("file"));
+    const char *file = env->GetStringUTFChars(jsParam, 0);
+    engine->filename = strdup(file);
+    env->ReleaseStringUTFChars(jsParam, file);
+    engine->app->activity->vm->DetachCurrentThread();
 }
 
 void android_main(struct android_app *state) {
@@ -361,20 +392,23 @@ void android_main(struct android_app *state) {
 
     struct engine engine;
 
-    memset(spriteData, 0xff, width*height*stride);
-
     memset(&engine, 0, sizeof(engine));
     state->userData = &engine;
     state->onAppCmd = handle_cmd;
     state->onInputEvent = handle_input;
     engine.app = state;
 
+    get_intent_data(&engine);
+    LOGW("file is %s", engine.filename);
     init_emulator(&engine);
 
+    t_start = std::chrono::high_resolution_clock::now();
     while (1) {
         int ident;
         int events;
         struct android_poll_source *source;
+
+        engine.emu->makeStep();
 
         while ((ident = ALooper_pollAll(0, NULL, &events, (void **) &source)) >= 0) {
 
@@ -387,8 +421,5 @@ void android_main(struct android_app *state) {
                 return;
             }
         }
-
-        engine.emu->makeStep();
-        draw_frame(&engine);
     }
 }
