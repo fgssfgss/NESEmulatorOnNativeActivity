@@ -5,19 +5,13 @@
 #include "../include/PPU.h"
 
 PPU::PPU() {
-    memset(ram0, 0xff, sizeof(ram0));
-    memset(ram1, 0xff, sizeof(ram1));
+    memset(ram, 0xff, sizeof(ram));
     memset(oamram, 0xff, sizeof(oamram));
     memset(spritePositions, 0x00, sizeof(spritePositions));
     memset(spritePriorities, 0x00, sizeof(spritePriorities));
     memset(spritePatterns, 0x00, sizeof(spritePatterns));
     memset(spriteIndexes, 0x00, sizeof(spriteIndexes));
-
-    // by default it will be like that
-    nt1 = ram0;
-    nt2 = ram0;
-    nt3 = ram0;
-    nt4 = ram0;
+    
     rom = NULL;
 
     dummy_reg = 0;
