@@ -13,6 +13,7 @@ android {
         externalNativeBuild {
             cmake {
                 arguments "-DANDROID_ARM_NEON=TRUE", "-DANDROID_TOOLCHAIN=gcc"
+                cppFlags.addAll(["-I${file("src/main/jni/native_app_glue")}".toString()])
                 cppFlags "-std=c++11 -O3 -fexceptions -frtti"
             }
         }

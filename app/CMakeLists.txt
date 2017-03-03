@@ -12,5 +12,4 @@ add_library(emuactivity
 
 find_library(log-lib log)
 find_library(android-lib android)
-target_include_directories(emuactivity PRIVATE ${ANDROID_NDK}/sources/android/native_app_glue)
 target_link_libraries(emuactivity ${log-lib} ${android-lib} app-glue EGL GLESv1_CM GLESv2)

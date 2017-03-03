@@ -106,6 +106,8 @@ public:
     ~PPU();
 
 private:
+    uint16_t trnslt_addr(uint16_t addr);
+
     uint8_t PPUCTRL;
     uint8_t PPUMASK;
     uint8_t PPUSTATUS;
@@ -115,7 +117,7 @@ private:
     int cycle;
     int scanline;
     uint64_t frame;
-    int mappingType;
+    int mirroringType;
     int f;
     int nmiDelay;
     bool prevNmi = false;
@@ -138,12 +140,7 @@ private:
     uint8_t spritePriorities[8];
     uint8_t spriteIndexes[8];
 
-    uint8_t *nt1;
-    uint8_t *nt2;
-    uint8_t *nt3;
-    uint8_t *nt4;
-    uint8_t ram0[0x400];
-    uint8_t ram1[0x400];
+    uint8_t ram[0x800];
     uint8_t oamram[0x100];
     uint8_t oampal[0x20];
 

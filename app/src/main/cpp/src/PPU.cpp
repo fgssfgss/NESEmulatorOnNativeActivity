@@ -51,24 +51,22 @@ PPU::PPU() {
     }
 }
 
+inline uint16_t PPU::trnslt_addr(uint16_t addr) {
+    switch (mirroringType)
+    {
+        case 1: return uint16_t(addr % 0x800);
+        case 0: return uint16_t(((addr / 2) & 0x400) + (addr % 0x400));
+        default:    return uint16_t(addr - 0x2000);
+    }
+}
+
 void PPU::init() { // for NMI
     Console &c = Console::Instance();
 
     cpu = c.getCPU();
     rom = c.getROM();
 
-    mappingType = rom->MirroringStatus(); // setting initial mapping vram banks
-    if (mappingType == 0) {
-        nt1 = ram0;
-        nt2 = ram0;
-        nt3 = ram1;
-        nt4 = ram1;
-    } else if (mappingType == 1) {
-        nt1 = ram0;
-        nt2 = ram1;
-        nt3 = ram0;
-        nt4 = ram1;
-    }
+    mirroringType = rom->MirroringStatus(); // setting initial mapping vram banks
 }
 
 PPU::~PPU() {
@@ -176,42 +174,26 @@ uint8_t PPU::Read(uint16_t addr) {
     return 0;
 }
 
-uint8_t PPU::ReadRam(uint16_t addr) {
+inline uint8_t PPU::ReadRam(uint16_t addr) {
     addr %= 0x4000;
     if (addr >= 0x0000 && addr <= 0x1FFF) {
         return rom->ReadCHR(addr);
-    } else if (addr >= 0x2000 && addr <= 0x23FF) {
-        return nt1[addr % 0x2000];
-    } else if (addr >= 0x2400 && addr <= 0x27FF) {
-        return nt2[addr % 0x2400];
-    } else if (addr >= 0x2800 && addr <= 0x2BFF) {
-        return nt3[addr % 0x2800];
-    } else if (addr >= 0x2C00 && addr <= 0x2FFF) {
-        return nt4[addr % 0x2C00];
-    } else if (addr >= 0x3000 && addr <= 0x3EFF) {
-        return nt1[addr % 0x3000];
+    } else if (addr >= 0x2000 && addr <= 0x3EFF) {
+        return ram[trnslt_addr(addr)];
     } else if (addr >= 0x3F00 && addr <= 0x3FFF) {
-        return readPalette((addr % 0x3F00) % 0x20);
+        return readPalette((addr - 0x3F00) % 0x20);
     }
     return 0;
 }
 
-void PPU::WriteRam(uint16_t addr, uint8_t value) {
+inline void PPU::WriteRam(uint16_t addr, uint8_t value) {
     addr %= 0x4000;
     if (addr >= 0x0000 && addr <= 0x1FFF) {
         // lol
-    } else if (addr >= 0x2000 && addr <= 0x23FF) {
-        nt1[addr % 0x2000] = value;
-    } else if (addr >= 0x2400 && addr <= 0x27FF) {
-        nt2[addr % 0x2400] = value;
-    } else if (addr >= 0x2800 && addr <= 0x2BFF) {
-        nt3[addr % 0x2800] = value;
-    } else if (addr >= 0x2C00 && addr <= 0x2FFF) {
-        nt4[addr % 0x2C00] = value;
-    } else if (addr >= 0x3000 && addr <= 0x3EFF) {
-        nt1[addr % 0x3000] = value;
+    } else if (addr >= 0x2000 && addr <= 0x3EFF) {
+        ram[trnslt_addr(addr)] = value;
     } else if (addr >= 0x3F00 && addr <= 0x3FFF) {
-        writePalette((addr % 0x3F00) % 0x20, value);
+        writePalette((addr - 0x3F00) % 0x20, value);
     }
 }
 
@@ -518,21 +500,8 @@ void PPU::tick() {
 int PPU::execute() {
     tick();
 
-    if (mappingType != rom->MirroringStatus()) {
-        mappingType = rom->MirroringStatus();
-
-        if (mappingType == 0) {
-            nt1 = ram0;
-            nt1 = ram0;
-            nt2 = ram0;
-            nt3 = ram1;
-            nt4 = ram1;
-        } else if (mappingType == 1) {
-            nt1 = ram0;
-            nt2 = ram1;
-            nt3 = ram0;
-            nt4 = ram1;
-        }
+    if (mirroringType != rom->MirroringStatus()) {
+        mirroringType = rom->MirroringStatus();
     }
 
     bool renderingEnabled = ((PPUMASK & flagShowBackground) || (PPUMASK & flagShowSprites));
